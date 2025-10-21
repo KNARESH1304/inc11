@@ -92,25 +92,86 @@ class DatabaseHelper {
       'Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 'Queen', 'King'
     ];
 
+    // CORRECTED CARD CODES - ALL UPPERCASE
+    final Map<String, String> cardCodeMap = {
+      'Ace': 'A', '2': '2', '3': '3', '4': '4', '5': '5', 
+      '6': '6', '7': '7', '8': '8', '9': '9', '10': '0',
+      'Jack': 'J', 'Queen': 'Q', 'King': 'K'
+    };
+
+    final Map<String, String> suitCodeMap = {
+      'Hearts': 'H', 'Spades': 'S', 'Diamonds': 'D', 'Clubs': 'C'
+    };
+
     for (final suit in suits) {
-      for (int i = 0; i < cardNames.length; i++) {
-        final cardName = cardNames[i];
-        final suitInitial = suit.substring(0, 1).toLowerCase();
-        final imageName = cardName.toLowerCase() == 'ace' ? 'A' : 
-                         cardName.toLowerCase() == 'jack' ? 'J' :
-                         cardName.toLowerCase() == 'queen' ? 'Q' :
-                         cardName.toLowerCase() == 'king' ? 'K' : cardName;
+      for (final cardName in cardNames) {
+        final cardCode = cardCodeMap[cardName]!;
+        final suitCode = suitCodeMap[suit]!;
+        
+        // Using correct URL format with UPPERCASE suit codes
+        final imageUrl = 'https://deckofcardsapi.com/static/img/${cardCode}${suitCode}.png';
         
         final card = {
           'name': cardName,
           'suit': suit,
-          'image_url': 'https://deckofcardsapi.com/static/img/${imageName}${suitInitial}.png',
+          'image_url': imageUrl,
           'folder_id': null,
           'created_at': DateTime.now().millisecondsSinceEpoch,
         };
         await db.insert('cards', card);
       }
     }
+  }
+
+  // RESET DATABASE METHOD - Call this to fix image URLs
+  Future<void> resetDatabase() async {
+    final db = await database;
+    
+    // Delete all existing data
+    await db.delete('cards');
+    await db.delete('folders');
+    
+    // Repopulate with correct data
+    await _prepopulateFolders(db);
+    await _prepopulateCards(db);
+    
+    print('Database reset complete with correct image URLs');
+  }
+
+  // ALTERNATIVE: Fix existing URLs without deleting data
+  Future<void> fixImageUrls() async {
+    final db = await database;
+    final cards = await db.query('cards');
+    
+    final Map<String, String> cardCodeMap = {
+      'Ace': 'A', '2': '2', '3': '3', '4': '4', '5': '5', 
+      '6': '6', '7': '7', '8': '8', '9': '9', '10': '0',
+      'Jack': 'J', 'Queen': 'Q', 'King': 'K'
+    };
+
+    final Map<String, String> suitCodeMap = {
+      'Hearts': 'H', 'Spades': 'S', 'Diamonds': 'D', 'Clubs': 'C'
+    };
+
+    int updatedCount = 0;
+    for (final card in cards) {
+      final cardName = card['name'] as String;
+      final suit = card['suit'] as String;
+      final cardCode = cardCodeMap[cardName]!;
+      final suitCode = suitCodeMap[suit]!;
+      
+      final correctUrl = 'https://deckofcardsapi.com/static/img/${cardCode}${suitCode}.png';
+      
+      await db.update(
+        'cards',
+        {'image_url': correctUrl},
+        where: 'id = ?',
+        whereArgs: [card['id']],
+      );
+      updatedCount++;
+    }
+    
+    print('Fixed $updatedCount card image URLs');
   }
 
   // Folder operations

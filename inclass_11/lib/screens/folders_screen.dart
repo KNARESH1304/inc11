@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../database_helper.dart';
 import '../models.dart';
-import 'folder_cards_screen.dart'; // Add this import
+import 'folder_cards_screen.dart';
+import '../image_helper.dart';
 
 class FoldersScreen extends StatefulWidget {
   const FoldersScreen({super.key});

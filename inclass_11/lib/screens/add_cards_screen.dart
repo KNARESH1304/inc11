@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../database_helper.dart';
-import '../models.dart';
+import '../models.dart' as models;
+import '../image_helper.dart';
 
 class AddCardsScreen extends StatefulWidget {
-  final Folder folder;
+  final models.Folder folder;
   final int currentCardCount;
 
   const AddCardsScreen({
@@ -18,7 +19,7 @@ class AddCardsScreen extends StatefulWidget {
 
 class _AddCardsScreenState extends State<AddCardsScreen> {
   final DatabaseHelper _dbHelper = DatabaseHelper();
-  List<CardModel> _availableCards = [];
+  List<models.CardModel> _availableCards = [];
   List<int> _selectedCardIds = [];
 
   @override
@@ -30,7 +31,7 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
   Future<void> _loadAvailableCards() async {
     final cardsData = await _dbHelper.getCardsByFolder(null);
     setState(() {
-      _availableCards = cardsData.map((data) => CardModel.fromMap(data)).toList();
+      _availableCards = cardsData.map((data) => models.CardModel.fromMap(data)).toList();
     });
   }
 
@@ -67,6 +68,7 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
   @override
   Widget build(BuildContext context) {
     final remainingSlots = 6 - widget.currentCardCount;
+    final canSelectMore = _selectedCardIds.length + widget.currentCardCount < 6;
 
     return Scaffold(
       appBar: AppBar(
@@ -74,33 +76,67 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
         backgroundColor: Colors.white,
         actions: [
           if (_selectedCardIds.isNotEmpty)
-            TextButton(
+            ElevatedButton.icon(
               onPressed: _addSelectedCards,
-              child: Text(
-                'Add (${_selectedCardIds.length})',
-                style: const TextStyle(color: Colors.blue),
+              icon: const Icon(Icons.add),
+              label: Text('Add (${_selectedCardIds.length})'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
               ),
             ),
         ],
       ),
       body: Column(
         children: [
+          // Header info
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.blue[50],
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              border: Border(
+                bottom: BorderSide(color: Colors.blue[100]!),
+              ),
+            ),
             child: Row(
               children: [
-                const Icon(Icons.info, color: Colors.blue),
-                const SizedBox(width: 8),
+                Icon(Icons.info, color: Colors.blue[700]),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    'Select cards to add ($remainingSlots slots remaining)',
-                    style: const TextStyle(color: Colors.blue),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select cards to add to ${widget.folder.name}',
+                        style: TextStyle(
+                          color: Colors.blue[800],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$remainingSlots slots remaining • ${_selectedCardIds.length} selected',
+                        style: TextStyle(
+                          color: Colors.blue[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+
+          // Progress indicator
+          if (widget.currentCardCount > 0)
+            LinearProgressIndicator(
+              value: widget.currentCardCount / 6,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+            ),
+
+          // Cards grid
           Expanded(
             child: _availableCards.isEmpty
                 ? const Center(
@@ -112,6 +148,11 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
                         Text(
                           'No available cards',
                           style: TextStyle(fontSize: 18, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'All cards are already in folders',
+                          style: TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
@@ -132,26 +173,30 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
                       return GestureDetector(
                         onTap: () => _toggleCardSelection(card.id),
                         child: Card(
-                          elevation: 4,
+                          elevation: isSelected ? 8 : 4,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: isSelected
                                 ? const BorderSide(color: Colors.blue, width: 3)
-                                : BorderSide.none,
+                                : canSelectMore
+                                    ? BorderSide.none
+                                    : const BorderSide(color: Colors.grey, width: 1),
                           ),
+                          color: canSelectMore ? null : Colors.grey[100],
                           child: Stack(
                             children: [
                               Column(
                                 children: [
                                   Expanded(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: const BorderRadius.vertical(
-                                          top: Radius.circular(12),
-                                        ),
-                                        image: DecorationImage(
-                                          image: NetworkImage(card.imageUrl),
-                                          fit: BoxFit.cover,
+                                    child: ImageHelper.networkImageWithFallback(
+                                      card.imageUrl,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      fit: BoxFit.cover,
+                                      placeholder: Container(
+                                        color: Colors.grey[200],
+                                        child: const Center(
+                                          child: CircularProgressIndicator(),
                                         ),
                                       ),
                                     ),
@@ -160,8 +205,9 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
                                     padding: const EdgeInsets.all(8.0),
                                     child: Text(
                                       card.fullName,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.w500,
+                                        color: canSelectMore ? Colors.black : Colors.grey,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -176,6 +222,16 @@ class _AddCardsScreenState extends State<AddCardsScreen> {
                                     radius: 12,
                                     backgroundColor: Colors.blue,
                                     child: Icon(Icons.check, size: 16, color: Colors.white),
+                                  ),
+                                ),
+                              if (!canSelectMore && !isSelected)
+                                const Positioned(
+                                  top: 8,
+                                  right: 8,
+                                  child: CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: Colors.grey,
+                                    child: Icon(Icons.lock, size: 12, color: Colors.white),
                                   ),
                                 ),
                             ],
