@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
-import 'database_helper.dart';
 import 'screens/folders_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Reset database to fix image URLs - REMOVE THIS AFTER FIRST SUCCESSFUL RUN
-  print("Resetting database to fix image URLs...");
-  final dbHelper = DatabaseHelper();
-  await dbHelper.resetDatabase();
-  print("Database reset complete!");
-  
+void main() {
   runApp(const CardOrganizerApp());
 }
 
